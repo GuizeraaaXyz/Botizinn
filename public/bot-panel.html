@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Bot</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .shortcut-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 8px;
+        }
+        
+        .shortcut-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .shortcut-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .shortcut-btn:active {
+            transform: translateY(0);
+        }
+        
+        .command-item {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            position: relative;
+        }
+        
+        .command-actions {
+            display: flex;
+            gap: 5px;
+            margin-left: auto;
+        }
+        
+        .cmd-shortcut-btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .cmd-shortcut-btn:hover {
+            background: #45a049;
+        }
+        
+        .quick-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .quick-btn {
+            background: #ff9800;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        
+        .quick-btn:hover {
+            background: #f57c00;
+        }
+        
+        .command-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .run-sequence-btn {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .run-sequence-btn:hover {
+            background: #0b7dda;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 id="botTitle">🤖 Painel do Bot</h1>
+            <button onclick="closeWindow()" class="btn btn-secondary">❌ Fechar</button>
+        </header>
+
+        <div class="bot-status-panel">
+            <div class="status-card">
+                <h3>Status</h3>
+                <div id="botStatus" class="status offline">⛔ Offline</div>
+            </div>
+            
+            <div class="actions-card">
+                <h3>Controles</h3>
+                <div class="button-group">
+                    <button id="startBtn" class="btn btn-success">▶️ Iniciar Bot</button>
+                    <button id="stopBtn" class="btn btn-danger">⏹️ Parar Bot</button>
+                    <button id="toggleAutoBtn" class="btn btn-primary">🔄 Alternar Auto</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botões de Atalho Rápidos -->
+        <div class="commands-section">
+            <h2>⚡ Atalhos Rápidos</h2>
+            <div class="shortcut-buttons" id="shortcutButtons">
+                <!-- Botões serão adicionados dinamicamente -->
+            </div>
+        </div>
+
+        <div class="commands-section">
+            <h2>📝 Comandos Manuais</h2>
+            <div class="quick-commands">
+                <input type="text" id="quickCommand" placeholder="Digite um comando...">
+                <button id="sendQuickCmd" class="btn btn-primary">Enviar</button>
+            </div>
+            <div class="quick-buttons">
+                <button class="quick-btn" onclick="sendQuickCommand('/login {senha}')">🔐 Login</button>
+                <button class="quick-btn" onclick="sendQuickCommand('/skyblock')">🏝️ Skyblock</button>
+                <button class="quick-btn" onclick="sendQuickCommand('/home farm')">🏠 Home Farm</button>
+                <button class="quick-btn" onclick="sendQuickCommand('/ac')">💬 AC</button>
+                <button class="quick-btn" onclick="sendQuickCommand('/spawn')">📍 Spawn</button>
+            </div>
+        </div>
+
+        <div class="sequence-section">
+            <div class="command-header">
+                <h2>⚙️ Sequência de Comandos</h2>
+                <button id="runSequenceBtn" class="run-sequence-btn">▶️ Executar Sequência Agora</button>
+            </div>
+            <div id="commandsList"></div>
+            <button id="addCommandBtn" class="btn btn-secondary">➕ Adicionar Comando</button>
+            <button id="saveSequenceBtn" class="btn btn-primary">💾 Salvar Sequência</button>
+        </div>
+
+        <div class="logs-section">
+            <h2>📋 Logs</h2>
+            <div id="logs" class="logs-container"></div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const botId = urlParams.get('id');
+        let botConfig = null;
+
+        function addLog(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            
+            const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : '💬';
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${icon} ${message}`;
+            
+            if (type === 'error') logEntry.style.color = '#ff6b6b';
+            if (type === 'success') logEntry.style.color = '#51cf66';
+            
+            logsDiv.appendChild(logEntry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            
+            while (logsDiv.children.length > 100) {
+                logsDiv.removeChild(logsDiv.firstChild);
+            }
+        }
+
+        function sendQuickCommand(command) {
+            if (!botConfig) {
+                addLog('Bot não configurado!', 'error');
+                return;
+            }
+            
+            let finalCommand = command.replace('{senha}', botConfig.senha || '');
+            
+            fetch(`/api/bot/${botId}/command`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: finalCommand })
+            }).then(() => {
+                addLog(`Comando enviado: ${finalCommand}`, 'success');
+            }).catch(err => {
+                addLog(`Erro ao enviar comando: ${err.message}`, 'error');
+            });
+        }
+
+        function loadBotConfig() {
+            fetch(`/api/bot/${botId}`)
+                .then(res => res.json())
+                .then(data => {
+                    botConfig = data;
+                    document.getElementById('botTitle').textContent = `🤖 ${data.nome}`;
+                    updateStatus(data.running ? 'online' : 'offline');
+                    renderCommands();
+                    renderShortcutButtons();
+                })
+                .catch(err => addLog(`Erro ao carregar config: ${err.message}`, 'error'));
+        }
+
+        function renderShortcutButtons() {
+            const container = document.getElementById('shortcutButtons');
+            if (!botConfig || !botConfig.commands) return;
+            
+            // Botões para cada comando da sequência
+            const buttons = botConfig.commands
+                .filter(cmd => cmd.enabled)
+                .map(cmd => {
+                    let displayCmd = cmd.command.replace('{senha}', '***');
+                    return `<button class="shortcut-btn" onclick="sendQuickCommand('${cmd.command.replace(/'/g, "\\'")}')">
+                        📌 ${displayCmd}
+                    </button>`;
+                });
+            
+            // Adicionar botão especial para executar sequência completa
+            buttons.unshift(`<button class="shortcut-btn" onclick="runSequenceNow()" style="background: #ff9800;">
+                🚀 Executar Tudo
+            </button>`);
+            
+            container.innerHTML = buttons.join('');
+        }
+
+        function runSequenceNow() {
+            if (!botConfig) return;
+            
+            addLog('🚀 Iniciando sequência manualmente...', 'info');
+            
+            const commands = botConfig.commands.filter(cmd => cmd.enabled);
+            let index = 0;
+            
+            function executeNext() {
+                if (index >= commands.length) {
+                    addLog('🎉 Sequência concluída!', 'success');
+                    return;
+                }
+                
+                const cmd = commands[index];
+                let finalCommand = cmd.command.replace('{senha}', botConfig.senha || '');
+                const delay = (cmd.minDelay || 4) * 1000;
+                
+                addLog(`⏳ Aguardando ${delay/1000}s para: ${finalCommand}`, 'info');
+                
+                setTimeout(() => {
+                    fetch(`/api/bot/${botId}/command`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command: finalCommand })
+                    }).then(() => {
+                        addLog(`✅ Comando ${index + 1}/${commands.length}: ${finalCommand}`, 'success');
+                        index++;
+                        executeNext();
+                    }).catch(err => {
+                        addLog(`❌ Erro: ${err.message}`, 'error');
+                        index++;
+                        executeNext();
+                    });
+                }, delay);
+            }
+            
+            executeNext();
+        }
+
+        function updateStatus(status) {
+            const statusDiv = document.getElementById('botStatus');
+            const statusText = {
+                'online': '✅ Online',
+                'offline': '⛔ Offline',
+                'connecting': '🔄 Conectando',
+                'kicked': '🚫 Kickado'
+            }[status] || status;
+            
+            statusDiv.textContent = statusText;
+            statusDiv.className = `status ${status}`;
+        }
+
+        function renderCommands() {
+            const container = document.getElementById('commandsList');
+            if (!botConfig || !botConfig.commands) return;
+            
+            container.innerHTML = botConfig.commands.map((cmd, index) => `
+                <div class="command-item">
+                    <input type="checkbox" ${cmd.enabled ? 'checked' : ''} data-index="${index}" class="cmd-enabled">
+                    <input type="text" value="${cmd.command.replace(/'/g, "\\'")}" 
+                           data-index="${index}" class="cmd-command" placeholder="Comando" style="flex: 1;">
+                    <input type="number" value="${cmd.minDelay}" data-index="${index}" class="cmd-minDelay" placeholder="Min delay" style="width: 80px;">
+                    <input type="number" value="${cmd.maxDelay}" data-index="${index}" class="cmd-maxDelay" placeholder="Max delay" style="width: 80px;">
+                    <div class="command-actions">
+                        <button onclick="testCommand(${index})" class="cmd-shortcut-btn" title="Executar este comando agora">▶️</button>
+                        <button onclick="removeCommand(${index})" class="btn-danger-small" title="Remover">❌</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Adicionar event listeners
+            document.querySelectorAll('.cmd-enabled').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    botConfig.commands[idx].enabled = e.target.checked;
+                    renderShortcutButtons();
+                });
+            });
+            
+            document.querySelectorAll('.cmd-command').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    botConfig.commands[idx].command = e.target.value;
+                    renderShortcutButtons();
+                });
+            });
+            
+            document.querySelectorAll('.cmd-minDelay').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    botConfig.commands[idx].minDelay = parseInt(e.target.value);
+                });
+            });
+            
+            document.querySelectorAll('.cmd-maxDelay').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    botConfig.commands[idx].maxDelay = parseInt(e.target.value);
+                });
+            });
+        }
+
+        function testCommand(index) {
+            const cmd = botConfig.commands[index];
+            let finalCommand = cmd.command.replace('{senha}', botConfig.senha || '');
+            
+            fetch(`/api/bot/${botId}/command`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: finalCommand })
+            }).then(() => {
+                addLog(`🧪 Teste: ${finalCommand}`, 'success');
+            }).catch(err => {
+                addLog(`Erro no teste: ${err.message}`, 'error');
+            });
+        }
+
+        function removeCommand(index) {
+            botConfig.commands.splice(index, 1);
+            renderCommands();
+            renderShortcutButtons();
+        }
+
+        function saveSequence() {
+            fetch(`/api/bot/${botId}/commandSequence`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ commands: botConfig.commands })
+            }).then(() => addLog('✅ Sequência salva!', 'success'));
+        }
+
+        function sendCommand() {
+            const cmd = document.getElementById('quickCommand').value;
+            if (!cmd) return;
+            sendQuickCommand(cmd);
+            document.getElementById('quickCommand').value = '';
+        }
+
+        function startBot() {
+            fetch(`/api/bot/${botId}/start`, { method: 'POST' })
+                .then(() => addLog('▶️ Iniciando bot...', 'info'));
+        }
+
+        function stopBot() {
+            fetch(`/api/bot/${botId}/stop`, { method: 'POST' })
+                .then(() => addLog('⏹️ Parando bot...', 'info'));
+        }
+
+        function toggleAuto() {
+            fetch(`/api/bot/${botId}/toggleAuto`, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => addLog(`🔄 Auto-sequence: ${data.autoSequence ? 'ON' : 'OFF'}`, 'info'));
+        }
+
+        function closeWindow() {
+            window.close();
+        }
+
+        // Event listeners
+        document.getElementById('startBtn').onclick = startBot;
+        document.getElementById('stopBtn').onclick = stopBot;
+        document.getElementById('toggleAutoBtn').onclick = toggleAuto;
+        document.getElementById('sendQuickCmd').onclick = sendCommand;
+        document.getElementById('saveSequenceBtn').onclick = saveSequence;
+        document.getElementById('runSequenceBtn').onclick = runSequenceNow;
+        document.getElementById('addCommandBtn').onclick = () => {
+            if (!botConfig.commands) botConfig.commands = [];
+            botConfig.commands.push({
+                command: '/comando',
+                enabled: true,
+                minDelay: 4,
+                maxDelay: 8,
+                afterDelay: 5,
+                afterDelayMax: 10
+            });
+            renderCommands();
+            renderShortcutButtons();
+        };
+        
+        document.getElementById('quickCommand').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendCommand();
+        });
+
+        // Inicialização
+        loadBotConfig();
+        
+        // Atualizar status periodicamente
+        setInterval(() => {
+            fetch('/api/bots')
+                .then(res => res.json())
+                .then(bots => {
+                    const bot = bots.find(b => b.id === botId);
+                    if (bot) updateStatus(bot.status);
+                });
+        }, 3000);
+    </script>
+</body>
+</html>

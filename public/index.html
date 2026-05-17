@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Bot Manager</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Minecraft Bot Manager</h1>
+            <button id="newBotBtn" class="btn btn-primary">➕ Novo Bot</button>
+        </header>
+        
+        <div class="bots-grid" id="botsGrid">
+            <!-- Bots serão carregados aqui -->
+        </div>
+    </div>
+
+    <!-- Modal Novo Bot -->
+    <div id="newBotModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>🤖 Criar Novo Bot</h2>
+            <form id="newBotForm">
+                <div class="form-group">
+                    <label>Nome do Bot:</label>
+                    <input type="text" id="botNome" required>
+                </div>
+                <div class="form-group">
+                    <label>Servidor:</label>
+                    <input type="text" id="botServer" value="healtzcraft.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Porta:</label>
+                    <input type="number" id="botPort" value="25565" required>
+                </div>
+                <div class="form-group">
+                    <label>Senha:</label>
+                    <input type="password" id="botSenha" required>
+                </div>
+                <div class="form-group">
+                    <label>Versão:</label>
+                    <input type="text" id="botVersion" value="1.21.4">
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Auth:</label>
+                    <select id="botAuth">
+                        <option value="offline">Offline</option>
+                        <option value="microsoft">Microsoft</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Criar Bot</button>
+            </form>
+        </div>
+    </div>
+
+<script>
+    let bots = [];
+
+    function loadBots() {
+        console.log('Carregando bots...');
+        fetch('/api/bots')
+            .then(res => res.json())
+            .then(data => {
+                console.log('Bots recebidos:', data);
+                bots = data;
+                renderBots();
+            })
+            .catch(err => console.error('Erro ao carregar bots:', err));
+    }
+
+    function renderBots() {
+        const grid = document.getElementById('botsGrid');
+        if (bots.length === 0) {
+            grid.innerHTML = '<div class="no-bots">Nenhum bot criado. Clique em "Novo Bot" para começar!</div>';
+            return;
+        }
+        
+        grid.innerHTML = bots.map(bot => `
+            <div class="bot-card ${bot.status}">
+                <div class="bot-header">
+                    <h3>🤖 ${bot.nome}</h3>
+                    <span class="status ${bot.status}">${getStatusText(bot.status)}</span>
+                </div>
+                <div class="bot-info">
+                    <p>📡 ${bot.server}</p>
+                    <p>🔄 Auto: ${bot.autoSequence ? 'ON' : 'OFF'}</p>
+                    <p>🟢 Status: ${bot.running ? 'Rodando' : 'Parado'}</p>
+                </div>
+                <div class="bot-actions">
+                    <button onclick="openBotPanel('${bot.id}')" class="btn btn-secondary">📊 Gerenciar</button>
+                    ${bot.running ? 
+                        `<button onclick="stopBot('${bot.id}')" class="btn btn-danger">⏹️ Parar</button>` :
+                        `<button onclick="startBot('${bot.id}')" class="btn btn-success">▶️ Iniciar</button>`
+                    }
+                    <button onclick="deleteBot('${bot.id}')" class="btn btn-danger">🗑️ Deletar</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function getStatusText(status) {
+        const statusMap = {
+            'online': '✅ Online',
+            'offline': '⛔ Offline',
+            'connecting': '🔄 Conectando',
+            'kicked': '🚫 Kickado'
+        };
+        return statusMap[status] || status;
+    }
+
+    function startBot(id) {
+        fetch(`/api/bot/${id}/start`, { method: 'POST' })
+            .then(() => loadBots());
+    }
+
+    function stopBot(id) {
+        fetch(`/api/bot/${id}/stop`, { method: 'POST' })
+            .then(() => loadBots());
+    }
+    
+    function deleteBot(id) {
+        if (confirm('Tem certeza que deseja deletar este bot permanentemente?')) {
+            fetch(`/api/bot/${id}`, { method: 'DELETE' })
+                .then(() => loadBots());
+        }
+    }
+
+    function openBotPanel(id) {
+        window.open(`/bot-panel.html?id=${id}`, '_blank', 'width=900,height=700');
+    }
+
+    // Modal Novo Bot
+    const modal = document.getElementById('newBotModal');
+    const newBotBtn = document.getElementById('newBotBtn');
+    const closeBtn = document.querySelector('.close');
+
+    newBotBtn.onclick = () => modal.style.display = 'block';
+    closeBtn.onclick = () => modal.style.display = 'none';
+    window.onclick = (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+    };
+
+    document.getElementById('newBotForm').onsubmit = (e) => {
+        e.preventDefault();
+        
+        const botData = {
+            nome: document.getElementById('botNome').value,
+            server: document.getElementById('botServer').value,
+            port: parseInt(document.getElementById('botPort').value),
+            senha: document.getElementById('botSenha').value,
+            version: document.getElementById('botVersion').value,
+            auth: document.getElementById('botAuth').value
+        };
+        
+        console.log('Enviando dados do bot:', botData);
+        
+        fetch('/api/bot/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(botData)
+        })
+        .then(res => res.json())
+        .then(data => {
+            console.log('Resposta:', data);
+            if (data.success) {
+                modal.style.display = 'none';
+                document.getElementById('newBotForm').reset();
+                loadBots();
+                alert('✅ Bot criado com sucesso!');
+            } else {
+                alert('❌ Erro ao criar bot: ' + (data.error || 'Erro desconhecido'));
+            }
+        })
+        .catch(err => {
+            console.error('Erro:', err);
+            alert('❌ Erro ao criar bot: ' + err.message);
+        });
+    };
+
+    // Carregar bots ao iniciar
+    loadBots();
+    // Atualizar a cada 5 segundos
+    setInterval(loadBots, 5000);
+</script>
+</body>
+</html>
